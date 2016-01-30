@@ -114,14 +114,10 @@ int main ( int argc, char **argv )
 				  compare = 0;
 			  }
 		  }
-		  //Shows rectangles
-		  //std::cout << sortedRectangles.size() << std::endl;
-		  for (uint k = 0; k < sortedRectangles.size(); k++)
-		  {
-			  //std::cout << "K= " << k << std::endl;
-			  std::cout << sortedRectangles.at(k).size.area() << std::endl;
-		  }
-		  std::cout << std::endl;
+
+		  Point2f pts[4];
+		  sortedRectangles.at(0).points(pts);
+		  rectangle(frame,pts[0],pts[2],Scalar(0,0,0));
 		  drawContours(frame,contours,-1,Scalar(0,255,0),3);
 		  imshow("Display Image", binary_frame);
 		  imshow("alt",frame);
