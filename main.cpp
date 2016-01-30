@@ -1,4 +1,6 @@
 #include <opencv2/opencv.hpp>
+#include <string>
+
 using namespace cv;
 
 const int height = 640;
@@ -8,6 +10,8 @@ const double brightness = 115.0/255;
 const int blur_kernel_size = 3;
 const int erode_kernel_size = 3;
 const int dilate_kernel_size = 3;
+const std::string mainWindow = "main";
+const std::string altWindow = "alt";
 //Hue 120-150
 void filter_image_for_color(cv::Mat& hsv_src, cv::Mat& bin_src, int* thresh_src, cv::Mat erode_src, cv::Mat dilate_src)
 {
@@ -36,8 +40,8 @@ void filter_image_for_color(cv::Mat& hsv_src, cv::Mat& bin_src, int* thresh_src,
 int main ( int argc, char **argv )
 {
 	  VideoCapture cap(1);
-	  namedWindow("Display Image", WINDOW_AUTOSIZE );
-	  namedWindow("alt",WINDOW_NORMAL);
+	  namedWindow(mainWindow, WINDOW_AUTOSIZE );
+	  namedWindow(altWindow,WINDOW_NORMAL);
 	  if (!cap.isOpened())
 	  {
 		  	 std::cout << "Camera opening error" << std::endl;
@@ -59,18 +63,28 @@ int main ( int argc, char **argv )
 	  std::vector < double > areas;
 	  std::vector<RotatedRect> sortedRectangles;
 	  int thresh_src[] = {40,80,80,130,115,255};
+
+	  cv::imshow(mainWindow,frame);
+	  cv::imshow(altWindow,frame);
+
+	  int key;
 	  while (true)
 	  {
+		  key = waitKey(200) & 255;
+		  if (key == 27)break;
+
 		  contours.clear();
 		  rectangles.clear();
 		  sortedRectangles.clear();
 
-		  if (waitKey(20) == 27) break;
-
 		  if (!cap.read(frame))
 		  {
+			  std::cout << "Could not read frame" << std::endl;
 			  continue;
 		  }
+
+		  imwrite( "./test.png", frame);
+
 		  medianBlur(frame,blur_frame,blur_kernel_size);
 		  cvtColor(blur_frame,hsv_frame,CV_BGR2HSV);
 		  filter_image_for_color(hsv_frame,binary_frame, thresh_src,erode_element,dilate_element);
@@ -83,11 +97,6 @@ int main ( int argc, char **argv )
 		  uint index = 0;
 		  uint compare = 0;
 		  bool end_reached = false;
-		  if (rectangles.empty()) {
-			  std::cout << "No rects" << std::endl;
-			  continue;
-		  }
-
 
 		  //Sort rectangles by area
 		  while (!rectangles.empty())
@@ -115,17 +124,16 @@ int main ( int argc, char **argv )
 			  }
 		  }
 
-		  Point2f pts[4];
-		  sortedRectangles.at(0).points(pts);
-		  rectangle(frame,pts[0],pts[2],Scalar(0,0,0));
+		  if (sortedRectangles.size() >= 1)
+		  {
+			  Point2f pts[4];
+			  sortedRectangles.at(0).points(pts);
+			  rectangle(frame,pts[0],pts[2],Scalar(0,0,0));
+		  }
+
 		  drawContours(frame,contours,-1,Scalar(0,255,0),3);
-		  imshow("Display Image", binary_frame);
-		  imshow("alt",frame);
+		  imshow(mainWindow, binary_frame);
+		  imshow(altWindow,frame);
 		  //std::cout << "Brightness is: " << cap.get(CAP_PROP_BRIGHTNESS) << std::endl;
 	  }
-
-	  cap >> frame;
-	  imshow("Display Image", frame);
-	  waitKey(0);
-	  return 0;
 }
