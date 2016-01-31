@@ -27,11 +27,11 @@ bool TowerTracker::RectangleSorter(RotatedRect x, RotatedRect y)
 {
 	return x.size.area() > y.size.area();
 }
-void TowerTracker::GetRectangles(std::vector < std::vector <Point> > contours,std::vector<RotatedRect> rectangles)
+void TowerTracker::GetRectangles(std::vector < std::vector <Point> > contours,std::vector<RotatedRect>* rectangles)
 {
 	  for (std::vector<Point > cur : contours)
 	  {
-		  rectangles.push_back(minAreaRect (cur));
+		  rectangles->push_back(minAreaRect (cur));
 	  }
 }
 void TowerTracker::GetContours (InputOutputArray image, OutputArrayOfArrays contours)
@@ -84,9 +84,8 @@ void TowerTracker::run()
 		ErodeFrame(binary_frame,binary_frame, erode_element);
 		DilateFrame(binary_frame,binary_frame, dilate_element);
 		GetContours (binary_frame, contours);
-		GetRectangles(contours,rectangles);
+		GetRectangles(contours,&rectangles);
 		std::sort(rectangles.begin(),rectangles.end(),RectangleSorter);
-
 
 		#if DEBUG_GUI
 		//Debugging GUI Stuff
@@ -95,6 +94,7 @@ void TowerTracker::run()
 			Point2f pts[4];
 			rectangles.at(0).points(pts);
 			rectangle(frame,pts[0],pts[2],Scalar(0,0,0));
+			std::cout << rectangles.at(0).size.area() << std::endl << std::endl;
 		}
 
 		drawContours(frame,contours,-1,Scalar(0,255,0),3);

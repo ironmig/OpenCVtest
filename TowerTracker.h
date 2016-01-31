@@ -8,7 +8,8 @@
 #define DEBUG_GUI true
 
 using namespace cv;
-class TowerTracker {
+class TowerTracker
+{
 private:
 	struct ThresholdValues {
 		double HLOW;
@@ -25,7 +26,7 @@ private:
 	static void GetContours (InputOutputArray image, OutputArrayOfArrays contours);
 	static void ConvertToHSV(Mat& src, Mat& dest);
 	static void BlurFrame(Mat& src, Mat& dest, int kernel_size);
-	static void GetRectangles(std::vector < std::vector <Point> > contours, std::vector<RotatedRect> rectangles);
+	static void GetRectangles(std::vector < std::vector <Point> > contours, std::vector<RotatedRect>* rectangles);
 
 	const int height = 640;
 	const int width = 480;
@@ -34,7 +35,7 @@ private:
 	const int blur_kernel_size = 3;
 	const int erode_kernel_size = 3;
 	const int dilate_kernel_size = 3;
-	const struct ThresholdValues thresh = {40,80,80,130,115,255};
+	const struct ThresholdValues thresh = {5,15,170,210,210,275};
 
 	cv::VideoCapture cap;
 	Mat frame;
