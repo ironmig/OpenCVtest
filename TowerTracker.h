@@ -35,7 +35,7 @@ private:
 	const int blur_kernel_size = 3;
 	const int erode_kernel_size = 3;
 	const int dilate_kernel_size = 3;
-	const struct ThresholdValues thresh = {5,15,170,210,210,275};
+	const struct ThresholdValues thresh = {0,2.5,0,12.7,229.5,255};
 
 	cv::VideoCapture cap;
 	Mat frame;
