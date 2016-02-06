@@ -31,11 +31,11 @@ private:
 	const int height = 640;
 	const int width = 480;
 	const int frameRate = 30;
-	const double brightness = 115.0/255;
+	const double brightness = 0; //115.0/255;
 	const int blur_kernel_size = 3;
 	const int erode_kernel_size = 3;
 	const int dilate_kernel_size = 3;
-	const struct ThresholdValues thresh = {0,2.5,0,12.7,229.5,255};
+	const struct ThresholdValues thresh = {77.5,87.5,204,242.25,242.25,255};
 
 	cv::VideoCapture cap;
 	Mat frame;
@@ -46,10 +46,18 @@ private:
 	Mat dilate_element;
 	std::vector < std::vector <Point> > contours;
 	std::vector < RotatedRect > rectangles;
-
+	float frameCenterX;
 	#if DEBUG_GUI
 	const std::string mainWindow = "main";
 	const std::string altWindow = "alt";
+
+	//
+	const float minRatio = .02;
+	const float maxRatio = .05;
+
+	const float minRectRatio = 0.83;
+	const float maxRectRatio = 0.97;
+
 	#endif
 public:
 	TowerTracker();

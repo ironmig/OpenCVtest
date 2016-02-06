@@ -9,7 +9,8 @@ TowerTracker::TowerTracker() {
 	dilate_element = getStructuringElement(MORPH_RECT,Size(dilate_kernel_size,dilate_kernel_size),Point(-1,1));
 	contours = std::vector < std::vector <Point> >();
 	rectangles = std::vector < RotatedRect >();
-	cap = cv::VideoCapture(1);
+	cap = cv::VideoCapture(0);
+	frameCenterX = frame.cols/2;
 }
 void TowerTracker::ThresholdFrame(cv::Mat& src, cv::Mat& dest, TowerTracker::ThresholdValues thresh)
 {
@@ -52,6 +53,7 @@ void TowerTracker::run()
 	namedWindow(mainWindow, WINDOW_AUTOSIZE );
 	namedWindow(altWindow,WINDOW_NORMAL);
 	#endif
+	float frameArea = frame.rows * frame.cols;
 
 	if (!cap.isOpened())
 	{
@@ -74,6 +76,8 @@ void TowerTracker::run()
 
 		if (!cap.read(frame))
 		{
+			//cap.
+
 			std::cout << "Could not read frame" << std::endl;
 			continue;
 		}
@@ -89,12 +93,47 @@ void TowerTracker::run()
 
 		#if DEBUG_GUI
 		//Debugging GUI Stuff
+		circle(frame,Point(frame.cols/2,frame.rows/2),5,Scalar(255,0,0),5);
+
 		if (rectangles.size() >= 1)
 		{
 			Point2f pts[4];
 			rectangles.at(0).points(pts);
 			rectangle(frame,pts[0],pts[2],Scalar(0,0,0));
-			std::cout << rectangles.at(0).size.area() << std::endl << std::endl;
+
+			RotatedRect r = rectangles.at(0);
+			float centerX = r.center.x;
+			Point p = Point(r.center.x,r.center.y);
+			circle(frame,p, 5, Scalar(0,0,255),5);
+
+			//cv::cir
+			//negative
+			float error = centerX - frameCenterX;
+			float areaRatio = r.size.area() / frameArea;
+			std::cout << "Error:  " << error << " Area: " << areaRatio << std::endl;
+
+			float rectRatio = r.size.height / r.size.width;
+			//+ if approaching, - if moving away
+			//float changeInArea = area - previousArea;
+			std::cout << "RectRatio: " <<  rectRatio <<" Area :  " << areaRatio << " error is " << error;
+
+			if (rectRatio <= maxRectRatio && rectRatio >= minRectRatio)
+			{
+				std::cout << "   !Ratio Good!   ";
+			} else {
+				std::cout << "   !Ratio Bad!   ";
+			}
+			//previousArea = area;
+			if (areaRatio <= minRatio)
+			{
+				std::cout << ", Moving forward";
+			} else if (areaRatio >= maxRatio)
+			{
+				std::cout << ", Moving back";
+			} else {
+				std::cout << ", I'm set!";
+			}
+			std::cout << std::endl;
 		}
 
 		drawContours(frame,contours,-1,Scalar(0,255,0),3);
