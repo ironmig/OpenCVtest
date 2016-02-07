@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <memory>
 #include <string>
+#include <mutex>
 
 #define DEBUG_GUI true
 
@@ -29,6 +30,8 @@ public:
 	TowerTracker(ThresholdValues t);
 	std::shared_ptr<Data> GetData();
 	void run();
+	void Lock();
+	void Unlock();
 	virtual ~TowerTracker();
 private:
 	static bool RectangleSorter(RotatedRect x, RotatedRect y);
@@ -70,6 +73,7 @@ private:
 
 	std::shared_ptr<Data> data;
 	RotatedRect r;
+
 	#if DEBUG_GUI
 	const std::string mainWindow = "main";
 	const std::string altWindow = "alt";

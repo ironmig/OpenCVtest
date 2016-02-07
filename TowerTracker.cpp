@@ -94,6 +94,10 @@ void TowerTracker::ProcessRect()
 
 	//Prints out error and area, error is positive if approaching, - if moving away
 	std::cout << " Area : " << areaProportion << " Horizontal Error: " << error << std::endl;
+
+	data->Area = areaProportion;
+	data->CenterX = r.center.x;
+	data->CenterY = pts[0].y;
 }
 void TowerTracker::run()
 {
