@@ -1,6 +1,8 @@
 #include "TowerTracker.h"
 
-TowerTracker::TowerTracker() {
+TowerTracker::TowerTracker(ThresholdValues t) {
+	thresh = t;
+	data.reset(new Data{0,0,0});
 	frame = Mat(height,width,CV_8UC3); //inital frame
 	blur_frame = Mat(height,width,CV_8UC3); //blured frame
 	hsv_frame = Mat(height,width,CV_8UC3); //converted to HSV frame
@@ -12,40 +14,86 @@ TowerTracker::TowerTracker() {
 	cap = cv::VideoCapture(0);
 	frameCenterX = frame.cols/2;
 }
-void TowerTracker::ThresholdFrame(cv::Mat& src, cv::Mat& dest, TowerTracker::ThresholdValues thresh)
+void TowerTracker::ThresholdFrame()
 {
-	inRange(src,cv::Scalar(thresh.HLOW,thresh.SLOW,thresh.VLOW),Scalar(thresh.HHIGH,thresh.SHIGH,thresh.VHIGH),dest);
+	inRange(hsv_frame,cv::Scalar(thresh.HLOW,thresh.SLOW,thresh.VLOW),Scalar(thresh.HHIGH,thresh.SHIGH,thresh.VHIGH),binary_frame);
 }
-void TowerTracker::ErodeFrame(cv::Mat& src, cv::Mat& dest, cv::Mat erode_src)
+void TowerTracker::ErodeFrame()
 {
-	erode(src,dest, erode_src);
+	erode(binary_frame,binary_frame,erode_element);
 }
-void TowerTracker::DilateFrame(cv::Mat& src, cv::Mat& dest, cv::Mat dilate_src)
+void TowerTracker::DilateFrame()
 {
-	dilate(src,dest,dilate_src);
+	dilate(binary_frame,binary_frame,dilate_element);
 }
 bool TowerTracker::RectangleSorter(RotatedRect x, RotatedRect y)
 {
 	return x.size.area() > y.size.area();
 }
-void TowerTracker::GetRectangles(std::vector < std::vector <Point> > contours,std::vector<RotatedRect>* rectangles)
+void TowerTracker::GetRectangles()
 {
-	  for (std::vector<Point > cur : contours)
+	  for (std::vector<Point > cur : this->contours)
 	  {
-		  rectangles->push_back(minAreaRect (cur));
+		  rectangles.push_back(minAreaRect (cur));
 	  }
 }
-void TowerTracker::GetContours (InputOutputArray image, OutputArrayOfArrays contours)
+void TowerTracker::GetContours ()
 {
-	findContours(image, contours, CV_RETR_LIST, CV_CHAIN_APPROX_NONE);
+	findContours(binary_frame, contours, CV_RETR_LIST, CV_CHAIN_APPROX_NONE);
 }
-void TowerTracker::ConvertToHSV (Mat& src, Mat& dest)
+float TowerTracker::RectangleRatio(RotatedRect x)
 {
-	cvtColor(src,dest,CV_BGR2HSV);
+	return x.size.height/x.size.width;
 }
-void TowerTracker::BlurFrame(Mat& src, Mat& dest, int kernel_size)
+void TowerTracker::GetCorrectRect()
 {
-	medianBlur(src,dest,kernel_size);
+	if (rectangles.size() >= 1)
+	{
+		float ratio = RectangleRatio(rectangles.at(0));
+		if (ratio >= minRectRatio && ratio <= maxRectRatio)
+		{
+			r = rectangles.at(0);
+		} else {
+			throw std::string("Largest Rectangle not within ratio constraint");
+		}
+	}
+	throw std::string("Empty Rectangles Vector");
+}
+void TowerTracker::ConvertToHSV ()
+{
+	cvtColor(blur_frame,hsv_frame,CV_BGR2HSV);
+}
+void TowerTracker::BlurFrame()
+{
+	medianBlur(frame,blur_frame,blur_kernel_size);
+}
+void TowerTracker::SetCamSettings()
+{
+	cap.set(CAP_PROP_FRAME_WIDTH,width);
+	cap.set(CAP_PROP_FRAME_HEIGHT, height);
+	cap.set(CAP_PROP_FPS, frameRate);
+	cap.set(CAP_PROP_BRIGHTNESS,brightness);
+}
+void TowerTracker::ProcessRect()
+{
+	//Draws outline of rect on screen
+	Point2f pts[4];
+	r.points(pts);
+	rectangle(frame,pts[0],pts[2],Scalar(0,0,0));
+
+	//Draws dot at top center of rectangle
+	float centerX = r.center.x;
+	Point p = Point(r.center.x,pts[0].y);
+	circle(frame,p, 5, Scalar(0,0,255),5);
+
+	//Calculates horizontal off center-ness of rectangle
+	float error = centerX - frameCenterX;
+
+	//Calculates the proportion of the frame taken up by rectangle
+	float areaProportion= r.size.area() / frameArea;
+
+	//Prints out error and area, error is positive if approaching, - if moving away
+	std::cout << " Area : " << areaProportion << " Horizontal Error: " << error << std::endl;
 }
 void TowerTracker::run()
 {
@@ -53,17 +101,13 @@ void TowerTracker::run()
 	namedWindow(mainWindow, WINDOW_AUTOSIZE );
 	namedWindow(altWindow,WINDOW_NORMAL);
 	#endif
-	float frameArea = frame.rows * frame.cols;
 
 	if (!cap.isOpened())
 	{
 		std::cout << "Camera opening error" << std::endl;
 		return;
 	}
-	cap.set(CAP_PROP_FRAME_WIDTH,width);
-	cap.set(CAP_PROP_FRAME_HEIGHT, height);
-	cap.set(CAP_PROP_FPS, frameRate);
-	cap.set(CAP_PROP_BRIGHTNESS,brightness);
+	SetCamSettings();
 
 	int key;
 	while (true)
@@ -76,70 +120,42 @@ void TowerTracker::run()
 
 		if (!cap.read(frame))
 		{
-			//cap.
-
 			std::cout << "Could not read frame" << std::endl;
 			continue;
 		}
 
-		BlurFrame(frame,blur_frame,blur_kernel_size);
-		ConvertToHSV (blur_frame,hsv_frame);
-		ThresholdFrame(hsv_frame,binary_frame,thresh);
-		ErodeFrame(binary_frame,binary_frame, erode_element);
-		DilateFrame(binary_frame,binary_frame, dilate_element);
-		GetContours (binary_frame, contours);
-		GetRectangles(contours,&rectangles);
+		BlurFrame();
+		ConvertToHSV ();
+		ThresholdFrame();
+		ErodeFrame();
+		DilateFrame();
+		GetContours();
+		GetRectangles();
 		std::sort(rectangles.begin(),rectangles.end(),RectangleSorter);
 
 		#if DEBUG_GUI
 		//Debugging GUI Stuff
 		circle(frame,Point(frame.cols/2,frame.rows/2),5,Scalar(255,0,0),5);
-
-		if (rectangles.size() >= 1)
-		{
-			Point2f pts[4];
-			rectangles.at(0).points(pts);
-			rectangle(frame,pts[0],pts[2],Scalar(0,0,0));
-
-			RotatedRect r = rectangles.at(0);
-			float centerX = r.center.x;
-			Point p = Point(r.center.x,r.center.y);
-			circle(frame,p, 5, Scalar(0,0,255),5);
-
-			//cv::cir
-			//negative
-			float error = centerX - frameCenterX;
-			float areaRatio = r.size.area() / frameArea;
-			std::cout << "Error:  " << error << " Area: " << areaRatio << std::endl;
-
-			float rectRatio = r.size.height / r.size.width;
-			//+ if approaching, - if moving away
-			//float changeInArea = area - previousArea;
-			std::cout << "RectRatio: " <<  rectRatio <<" Area :  " << areaRatio << " error is " << error;
-
-			if (rectRatio <= maxRectRatio && rectRatio >= minRectRatio)
-			{
-				std::cout << "   !Ratio Good!   ";
-			} else {
-				std::cout << "   !Ratio Bad!   ";
-			}
-			//previousArea = area;
-			if (areaRatio <= minRatio)
-			{
-				std::cout << ", Moving forward";
-			} else if (areaRatio >= maxRatio)
-			{
-				std::cout << ", Moving back";
-			} else {
-				std::cout << ", I'm set!";
-			}
-			std::cout << std::endl;
-		}
-
 		drawContours(frame,contours,-1,Scalar(0,255,0),3);
 		imshow(mainWindow, binary_frame);
 		imshow(altWindow,frame);
 		#endif
+
+		//Try to find a good target rectangle
+		try {
+			GetCorrectRect();
+		}
+		catch (std::string* s) {
+			std::cout << *s << std::endl;
+			continue;
+		}
+		catch (...) {
+			std::cout << "Could not get a good rectangle" << std::endl;
+			continue;
+		}
+
+		ProcessRect();
+
 	}
 }
 TowerTracker::~TowerTracker()

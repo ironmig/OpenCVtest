@@ -3,14 +3,16 @@
 
 //OpenCV test
 #include "opencv2/opencv.hpp"
-#include  <algorithm>
+#include <algorithm>
+#include <memory>
+#include <string>
 
 #define DEBUG_GUI true
 
 using namespace cv;
 class TowerTracker
 {
-private:
+public:
 	struct ThresholdValues {
 		double HLOW;
 		double HHIGH;
@@ -19,15 +21,29 @@ private:
 		double VLOW;
 		double VHIGH;
 	};
-	static void ThresholdFrame(cv::Mat& src, cv::Mat& dest, TowerTracker::ThresholdValues thresh);
-	static void ErodeFrame(cv::Mat& src, cv::Mat& dest, cv::Mat erode_src);
-	static void DilateFrame(cv::Mat& src, cv::Mat& dest, cv::Mat dilate_src);
+	struct Data {
+		float Area;
+		float CenterX;
+		float CenterY;
+	};
+	TowerTracker(ThresholdValues t);
+	std::shared_ptr<Data> GetData();
+	void run();
+	virtual ~TowerTracker();
+private:
 	static bool RectangleSorter(RotatedRect x, RotatedRect y);
-	static void GetContours (InputOutputArray image, OutputArrayOfArrays contours);
-	static void ConvertToHSV(Mat& src, Mat& dest);
-	static void BlurFrame(Mat& src, Mat& dest, int kernel_size);
-	static void GetRectangles(std::vector < std::vector <Point> > contours, std::vector<RotatedRect>* rectangles);
+	static float RectangleRatio(RotatedRect x);
 
+	void SetCamSettings();
+	void ThresholdFrame();
+	void ErodeFrame();
+	void DilateFrame();
+	void ConvertToHSV();
+	void BlurFrame();
+	void GetContours ();
+	void GetRectangles();
+	void ProcessRect();
+	void GetCorrectRect();
 	const int height = 640;
 	const int width = 480;
 	const int frameRate = 30;
@@ -35,34 +51,29 @@ private:
 	const int blur_kernel_size = 3;
 	const int erode_kernel_size = 3;
 	const int dilate_kernel_size = 3;
-	const struct ThresholdValues thresh = {77.5,87.5,204,242.25,242.25,255};
+	struct ThresholdValues thresh;
 
 	cv::VideoCapture cap;
-	Mat frame;
-	Mat blur_frame;
-	Mat hsv_frame;
-	Mat binary_frame;
-	Mat erode_element;
-	Mat dilate_element;
+	Mat frame,blur_frame,hsv_frame,binary_frame,erode_element,dilate_element;
 	std::vector < std::vector <Point> > contours;
 	std::vector < RotatedRect > rectangles;
+
 	float frameCenterX;
+	const float frameArea = height*width;
+
+	const float minArea= .02;
+	const float maxArea = .05;
+
+	//Defines threshold of rectangles' length/width ratio to filter false positives
+	const float minRectRatio = 0.6 - .05;
+	const float maxRectRatio = 0.6 + .05;
+
+	std::shared_ptr<Data> data;
+	RotatedRect r;
 	#if DEBUG_GUI
 	const std::string mainWindow = "main";
 	const std::string altWindow = "alt";
-
-	//
-	const float minRatio = .02;
-	const float maxRatio = .05;
-
-	const float minRectRatio = 0.83;
-	const float maxRectRatio = 0.97;
-
 	#endif
-public:
-	TowerTracker();
-	void run();
-	virtual ~TowerTracker();
 };
 
 #endif /* SRC_TRACKTOWER_H_ */
