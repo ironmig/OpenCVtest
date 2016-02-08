@@ -11,7 +11,15 @@ TowerTracker::TowerTracker(ThresholdValues t) {
 	dilate_element = getStructuringElement(MORPH_RECT,Size(dilate_kernel_size,dilate_kernel_size),Point(-1,1));
 	contours = std::vector < std::vector <Point> >();
 	rectangles = std::vector < RotatedRect >();
-	cap = cv::VideoCapture(0);
+	cap = cv::VideoCapture(1);
+	isRunning = false;
+
+	if (!cap.isOpened())
+	{
+		std::cout << "Camera opening error" << std::endl;
+		return;
+	}
+	SetCamSettings();
 }
 void TowerTracker::ThresholdFrame()
 {
@@ -94,15 +102,46 @@ void TowerTracker::ProcessRect()
 	//Prints out error and area, error is positive if approaching, - if moving away
 	std::cout << " Area : " << areaProportion << " Horizontal Error: " << error << std::endl;
 
-	std::lock_guard<std::mutex> lock(data_mut);
-	data.Area = areaProportion;
-	data.CenterX = r.center.x;
-	data.CenterY = pts[0].y;
+	{
+		std::lock_guard<std::mutex> lock(data_mut);
+		data.Area = areaProportion;
+		data.CenterX = r.center.x;
+		data.CenterY = pts[0].y;
+	}
 }
 TowerTracker::Data TowerTracker::GetData()
 {
 	std::lock_guard<std::mutex> l(data_mut);
 	return data;
+}
+bool TowerTracker::KeepRunning()
+{
+	std::lock_guard<std::mutex> l(running_mut);
+	return isRunning;
+}
+void TowerTracker::Stop()
+{
+	{
+		std::lock_guard<std::mutex> l(running_mut);
+		isRunning = false;
+	}
+	if (runThread.joinable())
+	{
+		runThread.join();
+	} else {
+		throw "Could not join thread";
+	}
+}
+void TowerTracker::Start()
+{
+	if (!isRunning)
+	{
+		{
+			std::lock_guard<std::mutex> l(running_mut);
+			isRunning = false;
+		}
+		runThread = std::thread(&TowerTracker::run,this);
+	}
 }
 void TowerTracker::run()
 {
@@ -111,18 +150,8 @@ void TowerTracker::run()
 	namedWindow(altWindow,WINDOW_NORMAL);
 	#endif
 
-	if (!cap.isOpened())
+	while (KeepRunning())
 	{
-		std::cout << "Camera opening error" << std::endl;
-		return;
-	}
-	SetCamSettings();
-
-	int key;
-	do {
-		key = waitKey(200) & 255;
-		if (key == 27)break;
-
 		contours.clear();
 		rectangles.clear();
 
@@ -163,7 +192,7 @@ void TowerTracker::run()
 		}
 
 		ProcessRect();
-	} while (true);
+	}
 }
 TowerTracker::~TowerTracker()
 {

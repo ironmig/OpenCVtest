@@ -7,6 +7,7 @@
 #include <memory>
 #include <string>
 #include <mutex>
+#include <thread>
 
 #define DEBUG_GUI true
 
@@ -29,7 +30,8 @@ public:
 	};
 	TowerTracker(ThresholdValues t);
 	Data GetData();
-	void run();
+	void Start();
+	void Stop();
 	virtual ~TowerTracker();
 private:
 	static bool RectangleSorter(RotatedRect x, RotatedRect y);
@@ -45,6 +47,8 @@ private:
 	void GetRectangles();
 	void ProcessRect();
 	void GetCorrectRect();
+	bool KeepRunning();
+	void run();
 
 	const int height = 640;
 	const int width = 480;
@@ -61,6 +65,8 @@ private:
 	const float maxArea = .05;
 
 	cv::VideoCapture cap;
+	bool isRunning;
+	std::mutex running_mut;
 	Mat frame,blur_frame,hsv_frame,binary_frame,erode_element,dilate_element;
 	std::vector < std::vector <Point> > contours;
 	std::vector < RotatedRect > rectangles;
@@ -68,6 +74,7 @@ private:
 	Data data;
 	RotatedRect r;
 	std::mutex data_mut;
+	std::thread runThread;
 
 	#if DEBUG_GUI
 	const std::string mainWindow = "main";
