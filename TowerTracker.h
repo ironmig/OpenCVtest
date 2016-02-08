@@ -28,10 +28,8 @@ public:
 		float CenterY;
 	};
 	TowerTracker(ThresholdValues t);
-	std::shared_ptr<Data> GetData();
+	Data GetData();
 	void run();
-	void Lock();
-	void Unlock();
 	virtual ~TowerTracker();
 private:
 	static bool RectangleSorter(RotatedRect x, RotatedRect y);
@@ -47,6 +45,7 @@ private:
 	void GetRectangles();
 	void ProcessRect();
 	void GetCorrectRect();
+
 	const int height = 640;
 	const int width = 480;
 	const int frameRate = 30;
@@ -54,25 +53,21 @@ private:
 	const int blur_kernel_size = 3;
 	const int erode_kernel_size = 3;
 	const int dilate_kernel_size = 3;
-	struct ThresholdValues thresh;
+	const float minRectRatio = 0.6 - .05; //minimum ratio (length divided by width) allowed to filter false positives
+	const float maxRectRatio = 0.6 + .05; //maximum ratio (length divided by width) allowed to filter false positives
+	const int frameCenterX = width/2;
+	const float frameArea = height*width;
+	const float minArea= .02;
+	const float maxArea = .05;
 
 	cv::VideoCapture cap;
 	Mat frame,blur_frame,hsv_frame,binary_frame,erode_element,dilate_element;
 	std::vector < std::vector <Point> > contours;
 	std::vector < RotatedRect > rectangles;
-
-	float frameCenterX;
-	const float frameArea = height*width;
-
-	const float minArea= .02;
-	const float maxArea = .05;
-
-	//Defines threshold of rectangles' length/width ratio to filter false positives
-	const float minRectRatio = 0.6 - .05;
-	const float maxRectRatio = 0.6 + .05;
-
-	std::shared_ptr<Data> data;
+	struct ThresholdValues thresh;
+	Data data;
 	RotatedRect r;
+	std::mutex data_mut;
 
 	#if DEBUG_GUI
 	const std::string mainWindow = "main";

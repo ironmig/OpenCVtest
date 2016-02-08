@@ -2,7 +2,7 @@
 
 TowerTracker::TowerTracker(ThresholdValues t) {
 	thresh = t;
-	data.reset(new Data{0,0,0});
+	data = Data{};
 	frame = Mat(height,width,CV_8UC3); //inital frame
 	blur_frame = Mat(height,width,CV_8UC3); //blured frame
 	hsv_frame = Mat(height,width,CV_8UC3); //converted to HSV frame
@@ -12,7 +12,6 @@ TowerTracker::TowerTracker(ThresholdValues t) {
 	contours = std::vector < std::vector <Point> >();
 	rectangles = std::vector < RotatedRect >();
 	cap = cv::VideoCapture(0);
-	frameCenterX = frame.cols/2;
 }
 void TowerTracker::ThresholdFrame()
 {
@@ -95,9 +94,15 @@ void TowerTracker::ProcessRect()
 	//Prints out error and area, error is positive if approaching, - if moving away
 	std::cout << " Area : " << areaProportion << " Horizontal Error: " << error << std::endl;
 
-	data->Area = areaProportion;
-	data->CenterX = r.center.x;
-	data->CenterY = pts[0].y;
+	std::lock_guard<std::mutex> lock(data_mut);
+	data.Area = areaProportion;
+	data.CenterX = r.center.x;
+	data.CenterY = pts[0].y;
+}
+TowerTracker::Data TowerTracker::GetData()
+{
+	std::lock_guard<std::mutex> l(data_mut);
+	return data;
 }
 void TowerTracker::run()
 {
@@ -114,8 +119,7 @@ void TowerTracker::run()
 	SetCamSettings();
 
 	int key;
-	while (true)
-	{
+	do {
 		key = waitKey(200) & 255;
 		if (key == 27)break;
 
@@ -159,8 +163,7 @@ void TowerTracker::run()
 		}
 
 		ProcessRect();
-
-	}
+	} while (true);
 }
 TowerTracker::~TowerTracker()
 {
