@@ -15,6 +15,7 @@ using namespace cv;
 class TowerTracker
 {
 public:
+	void run();
 	struct ThresholdValues {
 		double HLOW;
 		double HHIGH;
@@ -48,17 +49,17 @@ private:
 	void ProcessRect();
 	void GetCorrectRect();
 	bool KeepRunning();
-	void run();
 
-	const int height = 640;
-	const int width = 480;
+
+	const int height = 480;
+	const int width = 640;
 	const int frameRate = 30;
 	const double brightness = 0; //115.0/255;
 	const int blur_kernel_size = 3;
 	const int erode_kernel_size = 3;
 	const int dilate_kernel_size = 3;
-	const float minRectRatio = 0.6 - .05; //minimum ratio (length divided by width) allowed to filter false positives
-	const float maxRectRatio = 0.6 + .05; //maximum ratio (length divided by width) allowed to filter false positives
+	const float minRectRatio = 0.6 - .15; //minimum ratio (length divided by width) allowed to filter false positives
+	const float maxRectRatio = 0.6 + .15; //maximum ratio (length divided by width) allowed to filter false positives
 	const int frameCenterX = width/2;
 	const float frameArea = height*width;
 	const float minArea= .02;

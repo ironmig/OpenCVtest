@@ -39,9 +39,10 @@ bool TowerTracker::RectangleSorter(RotatedRect x, RotatedRect y)
 }
 void TowerTracker::GetRectangles()
 {
-	  for (std::vector<Point > cur : this->contours)
+	std::cout << "Getting rects. Contours: " << contours.size() << std::endl;
+	  for (uint i = 0; i < contours.size(); i ++)
 	  {
-		  rectangles.push_back(minAreaRect (cur));
+		  rectangles.push_back(minAreaRect (contours[i]));
 	  }
 }
 void TowerTracker::GetContours ()
@@ -56,15 +57,27 @@ void TowerTracker::GetCorrectRect()
 {
 	if (rectangles.size() >= 1)
 	{
-		float ratio = RectangleRatio(rectangles.at(0));
-		if (ratio >= minRectRatio && ratio <= maxRectRatio)
+		float maxArea = 0;
+		int highest = 0;
+		for (uint i = 0; i < rectangles.size(); i ++)
 		{
-			r = rectangles.at(0);
-		} else {
-			throw std::string("Largest Rectangle not within ratio constraint");
+			if (rectangles.at(i).size.area() > maxArea) {
+				highest = i;
+				maxArea = rectangles.at(i).size.area();
+			}
 		}
+
+
+//		float ratio = RectangleRatio(rectangles.at(highest));
+//		std::cout << "Ratio: " << ratio << std::endl;
+//		if (ratio >= minRectRatio && ratio <= maxRectRatio)
+//		{
+			r = rectangles.at(highest);
+//		} else {
+//			throw std::string("Largest Rectangle not within ratio constraint");
+//		}
 	}
-	throw std::string("Empty Rectangles Vector");
+	else throw std::string("Empty Rectangles Vector");
 }
 void TowerTracker::ConvertToHSV ()
 {
@@ -86,15 +99,15 @@ void TowerTracker::ProcessRect()
 	//Draws outline of rect on screen
 	Point2f pts[4];
 	r.points(pts);
-	rectangle(frame,pts[0],pts[2],Scalar(0,0,0));
+	rectangle(frame,pts[0],pts[2],Scalar(255,255,255));
 
 	//Draws dot at top center of rectangle
-	float centerX = r.center.x;
-	Point p = Point(r.center.x,pts[0].y);
-	circle(frame,p, 5, Scalar(0,0,255),5);
+	Point center (r.center.x,r.center.y-r.size.height/2);
+	circle(frame,center,5, Scalar(255,0,0),5);
 
 	//Calculates horizontal off center-ness of rectangle
-	float error = centerX - frameCenterX;
+	//negative if to left, positive if to right
+	float error = center.x - frameCenterX;
 
 	//Calculates the proportion of the frame taken up by rectangle
 	float areaProportion= r.size.area() / frameArea;
@@ -134,14 +147,17 @@ void TowerTracker::Stop()
 }
 void TowerTracker::Start()
 {
-	if (!isRunning)
-	{
+	std::cout << "Entered start" << std::endl;
+	if (!isRunning)	{
+		std::cout << "Not running" << std::endl;
 		{
 			std::lock_guard<std::mutex> l(running_mut);
-			isRunning = false;
+			isRunning = true;
 		}
+		isRunning = true;
 		runThread = std::thread(&TowerTracker::run,this);
 	}
+	std::cout << "Exit start" << std::endl;
 }
 void TowerTracker::run()
 {
@@ -150,8 +166,14 @@ void TowerTracker::run()
 	namedWindow(altWindow,WINDOW_NORMAL);
 	#endif
 
-	while (KeepRunning())
+	std::cout << "running" << std::endl;
+	while (true)
 	{
+		int key = waitKey(200) & 255;
+		if (key == 27) {
+			break;
+		}
+		std::cout << "Loop start " << std::endl;
 		contours.clear();
 		rectangles.clear();
 
@@ -160,7 +182,7 @@ void TowerTracker::run()
 			std::cout << "Could not read frame" << std::endl;
 			continue;
 		}
-
+		std::cout << "Read frame" << std::endl;
 		BlurFrame();
 		ConvertToHSV ();
 		ThresholdFrame();
@@ -168,30 +190,30 @@ void TowerTracker::run()
 		DilateFrame();
 		GetContours();
 		GetRectangles();
-		std::sort(rectangles.begin(),rectangles.end(),RectangleSorter);
+		std::cout << "Rects: " << rectangles.size() << std::endl;
+		//std::sort(rectangles.begin(),rectangles.end(),RectangleSorter);
+		std::cout << "Rects sorted: " << rectangles.size() << std::endl;
+		std::cout << "Sorted" << std::endl;
 
-		#if DEBUG_GUI
+		//Try to find a good target rectangle
+		try {
+			GetCorrectRect();
+			ProcessRect();
+		}
+		catch (std::string s) {
+			std::cout << s << std::endl;
+		}
+		catch (...) {
+			std::cout << "Could not get a good rectangle" << std::endl;
+		}
+
 		//Debugging GUI Stuff
+		#if DEBUG_GUI
 		circle(frame,Point(frame.cols/2,frame.rows/2),5,Scalar(255,0,0),5);
 		drawContours(frame,contours,-1,Scalar(0,255,0),3);
 		imshow(mainWindow, binary_frame);
 		imshow(altWindow,frame);
 		#endif
-
-		//Try to find a good target rectangle
-		try {
-			GetCorrectRect();
-		}
-		catch (std::string* s) {
-			std::cout << *s << std::endl;
-			continue;
-		}
-		catch (...) {
-			std::cout << "Could not get a good rectangle" << std::endl;
-			continue;
-		}
-
-		ProcessRect();
 	}
 }
 TowerTracker::~TowerTracker()
